@@ -221,12 +221,6 @@ uv run dbt test
 
 ---
 
-## Related Projects
-
-- [Real-Time Ride Surge Pricing Engine](https://github.com/tejaswini-keerthi/surge-pricing-engine) — Kafka, Spark Structured Streaming, XGBoost, FastAPI, Streamlit
-
----
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
