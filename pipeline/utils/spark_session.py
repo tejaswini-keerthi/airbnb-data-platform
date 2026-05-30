@@ -13,6 +13,7 @@ def get_spark_session(app_name: str = "airbnb_pipeline") -> SparkSession:
     Creates and returns a local SparkSession.
     S3 reads/writes are handled via boto3, not Spark.
     ANSI mode disabled so bad casts return NULL instead of crashing.
+    Legacy datetime mode to handle corrupted date values in Parquet.
     """
     logger.info(f"Creating SparkSession: {app_name}")
 
@@ -21,6 +22,9 @@ def get_spark_session(app_name: str = "airbnb_pipeline") -> SparkSession:
         .appName(app_name)
         .master("local[*]")
         .config("spark.sql.ansi.enabled", "false")
+        .config("spark.sql.legacy.parquet.datetimeRebaseModeInWrite", "CORRECTED")
+        .config("spark.sql.legacy.parquet.int96RebaseModeInWrite", "CORRECTED")
+        .config("spark.sql.legacy.parquet.datetimeRebaseModeInRead", "CORRECTED")
         .config("spark.sql.adaptive.enabled", "true")
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
         .config("spark.driver.memory", "4g")
