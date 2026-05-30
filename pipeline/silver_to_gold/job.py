@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from loguru import logger
 from dotenv import load_dotenv
+from pyspark.sql import functions as F
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -25,7 +26,6 @@ load_dotenv()
 
 LOCAL_TEMP_DIR = Path("/tmp/airbnb_downloads")
 
-# city metadata for location dimension
 CITY_METADATA = {
     "new_york":  {"city": "New York",  "country": "USA"},
     "london":    {"city": "London",    "country": "UK"},
@@ -61,16 +61,32 @@ def run(city: str, snapshot_date: str) -> None:
     logger.info(f"Starting Silver → Gold for {city}/{snapshot_date}")
 
     # read Silver listings parquet
-    silver_listings_path = (
-        LOCAL_TEMP_DIR / city / snapshot_date / "listings_silver"
-    )
-
+    silver_listings_path = LOCAL_TEMP_DIR / city / snapshot_date / "listings_silver"
     if not silver_listings_path.exists():
         logger.error(f"Silver listings not found: {silver_listings_path}")
         return
 
     logger.info(f"Reading Silver listings from: {silver_listings_path}")
     df_listings = spark.read.parquet(str(silver_listings_path))
+
+    # get price from calendar since 2026 listings.csv has no price
+    local_calendar = LOCAL_TEMP_DIR / city / snapshot_date / "calendar_silver"
+    if local_calendar.exists():
+        logger.info("Getting price from calendar silver")
+        df_calendar = spark.read.parquet(str(local_calendar))
+        price_lookup = (
+            df_calendar
+            .filter(F.col("available") == True)
+            .filter(F.col("price").isNotNull())
+            .groupBy("listing_id")
+            .agg(F.percentile_approx("price", 0.5).alias("price"))
+        )
+        df_listings = df_listings.drop("price").join(
+            price_lookup,
+            df_listings.id.cast("integer") == price_lookup.listing_id,
+            how="left"
+        ).drop(price_lookup.listing_id)
+        logger.info("Price joined from calendar")
 
     logger.info(f"Loaded {df_listings.count()} listings from Silver")
 

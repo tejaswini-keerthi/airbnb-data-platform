@@ -8,6 +8,10 @@ Tables produced:
     dim_location    — location hierarchy (country → city → neighbourhood)
     dim_property    — property dimension (SCD Type 2 managed by dbt snapshots)
     fact_listings   — fact table (one row per listing per snapshot)
+
+Note: all date columns stored as VARCHAR strings (yyyy-MM-dd) to avoid
+Parquet timestamp encoding issues when loading into Snowflake.
+Out-of-range dates are nulled out to prevent long overflow errors.
 """
 
 from pyspark.sql import DataFrame, SparkSession
@@ -20,6 +24,7 @@ def build_dim_date(spark: SparkSession, df_listings: DataFrame) -> DataFrame:
     """
     Builds dim_date from distinct dates in listings.
     One row per date with calendar attributes.
+    Date stored as string to avoid Parquet timestamp issues.
     """
     logger.info("Building dim_date")
 
@@ -43,6 +48,8 @@ def build_dim_date(spark: SparkSession, df_listings: DataFrame) -> DataFrame:
         .withColumn("quarter_name",
             F.concat(F.lit("Q"), F.quarter(F.col("date")).cast("string"))
         )
+        # convert to string to avoid Parquet timestamp encoding issues
+        .withColumn("date", F.col("date").cast("string"))
     )
 
     logger.info(f"dim_date: {df.count()} rows")
@@ -53,6 +60,7 @@ def build_dim_host(df_listings: DataFrame) -> DataFrame:
     """
     Builds dim_host from listings.
     One row per unique host.
+    host_since stored as string with out-of-range dates nulled out.
     """
     logger.info("Building dim_host")
 
@@ -92,6 +100,14 @@ def build_dim_host(df_listings: DataFrame) -> DataFrame:
             "host_acceptance_rate_pct",
             F.regexp_replace(F.col("host_acceptance_rate"), "%", "")
             .cast(DoubleType())
+        )
+        # null out out-of-range dates before casting to string
+        .withColumn("host_since",
+            F.when(
+                (F.col("host_since") >= F.lit("1900-01-01").cast("date")) &
+                (F.col("host_since") <= F.lit("2099-12-31").cast("date")),
+                F.col("host_since").cast("string")
+            ).otherwise(None)
         )
     )
 
@@ -135,7 +151,7 @@ def build_dim_location(df_listings: DataFrame, city: str, country: str) -> DataF
 def build_dim_property(df_listings: DataFrame, snapshot_date: str) -> DataFrame:
     """
     Builds dim_property from listings.
-    Note: SCD Type 2 history is managed by dbt snapshots downstream.
+    SCD Type 2 history is managed by dbt snapshots downstream.
     This produces the current snapshot's property attributes.
     """
     logger.info("Building dim_property")
@@ -167,7 +183,6 @@ def build_dim_property(df_listings: DataFrame, snapshot_date: str) -> DataFrame:
                 F.col("snapshot_date")
             ))
         )
-        # price tier for SCD Type 2 tracking
         .withColumn("price_tier",
             F.when(F.col("price") < 100, "budget")
             .when(F.col("price") < 200, "mid-range")
@@ -250,6 +265,7 @@ def build_fact_listings(
             "listing_id",
             "host_key",
             "location_key",
+            "neighbourhood",
             "property_key",
             "date_key",
             "snapshot_date",

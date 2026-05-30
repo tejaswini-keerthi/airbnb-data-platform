@@ -60,7 +60,14 @@ def run(city: str, snapshot_date: str) -> None:
             continue
 
         logger.info(f"Reading {table} from local: {local_csv}")
-        df_raw = spark.read.option("header", "true").csv(str(local_csv))
+        df_raw = (
+            spark.read
+            .option("header", "true")
+            .option("multiLine", "true")
+            .option("escape", '"')
+            .option("quote", '"')
+            .csv(str(local_csv))
+)
 
         # detect schema drift
         detect_schema_drift(city, snapshot_date, table, df_raw)
