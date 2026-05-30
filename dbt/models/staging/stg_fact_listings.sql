@@ -1,5 +1,7 @@
 -- Staging model for fact_listings
 -- Selects and renames columns for downstream use
+-- Testing GitHub Actions CI/CD pipeline
+
 
 with source as (
     select * from {{ source('gold', 'fact_listings') }}
