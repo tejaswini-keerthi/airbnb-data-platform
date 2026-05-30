@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: stg_fact_listings
+    description: "Staging view of fact_listings"
+    columns:
+      - name: fact_key
+        tests:
+          - not_null
+          - unique
+      - name: listing_id
+        tests:
+          - not_null
+      - name: neighbourhood
+        tests:
+          - not_null
+
+  - name: stg_dim_property
+    description: "Staging view of dim_property"
+    columns:
+      - name: property_key
+        tests:
+          - not_null
+          - unique
+      - name: listing_id
+        tests:
+          - not_null
+      - name: price_tier
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['budget', 'mid-range', 'premium', 'luxury', 'unknown']
+
+  - name: stg_dim_host
+    description: "Staging view of dim_host"
+    columns:
+      - name: host_key
+        tests:
+          - not_null
+          - unique
+      - name: host_id
+        tests:
+          - not_null
+
+  - name: stg_dim_location
+    description: "Staging view of dim_location"
+    columns:
+      - name: location_key
+        tests:
+          - not_null
+          - unique
+      - name: neighbourhood
+        tests:
+          - not_null

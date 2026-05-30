@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: gold
+    database: AIRBNB_DW
+    schema: GOLD
+    tables:
+      - name: fact_listings
+        description: "One row per listing per snapshot date"
+      - name: dim_property
+        description: "Property attributes with price tier"
+      - name: dim_host
+        description: "Host attributes"
+      - name: dim_location
+        description: "Location hierarchy - country, city, neighbourhood"
+      - name: dim_date
+        description: "Calendar dimension"
